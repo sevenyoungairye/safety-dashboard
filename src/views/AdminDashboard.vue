@@ -832,6 +832,7 @@
   
   const router = useRouter();
   
+  import { db } from '../utlils/storage' // 引入 storage
   import { ref, reactive, computed, onMounted } from "vue";
   import { ElMessage, ElMessageBox } from "element-plus";
   import {
@@ -858,52 +859,8 @@
   
   // 模拟数据源 (Ref 方便直接操作数组)
   const mockData = reactive({
-    safety: [
-      {
-        id: "AQ202507001",
-        type: "行车",
-        team: "一班",
-        description: "未按规定进行车辆检查",
-        time: "2025-07-01T08:23:00",
-        status: "solved",
-      },
-      {
-        id: "AQ202507002",
-        type: "人身",
-        team: "二班",
-        description: "作业时未佩戴安全防护装备",
-        time: "2025-07-03T14:15:00",
-        status: "solved",
-      },
-      {
-        id: "AQ202507003",
-        type: "设备",
-        team: "三班",
-        description: "设备维护记录不完整",
-        time: "2025-07-05T10:42:00",
-        status: "pending",
-      },
-    ],
-    cards: [
-      {
-        id: "PK202507001",
-        level: "局级",
-        color: "红色",
-        reason: "未按规定进行设备检查",
-        responsible: "张工",
-        team: "一班",
-        date: "2025-07-18",
-      },
-      {
-        id: "PK202507002",
-        level: "段级",
-        color: "黄色",
-        reason: "安全培训未按时完成",
-        responsible: "李工",
-        team: "二班",
-        date: "2025-07-16",
-      },
-    ],
+    safety: [],
+    cards: [],
     fire: [
       {
         id: "XF202507001",
@@ -1131,6 +1088,10 @@
     forms.fire.checkDate = today;
     forms.danger.date = today;
     forms.tracking.date = today;
+    const localData = db.load()
+    // 把本地数据覆盖到当前页面的响应式数据中
+    if (localData.safety) mockData.safety = localData.safety
+    if (localData.cards) mockData.cards = localData.cards
   });
   
   const goSafePage = () => {
@@ -1222,6 +1183,9 @@
     }
   
     mockData[type].unshift(newItem);
+
+    saveToLocal()
+
     ElMessage.success("记录添加成功");
     resetForm(type);
   };
@@ -1235,6 +1199,18 @@
       else forms[type][k] = "";
     });
   };
+
+  const saveToLocal = () => {
+    // 我们只存 safety 和 cards，或者你可以存整个 mockData
+    // 为了不覆盖 storage 里可能存在的其他字段，最好先读取再合并，或者简单粗暴全存
+    const currentData = db.load()
+    const newData = {
+      ...currentData,
+      safety: mockData.safety,
+      cards: mockData.cards
+    }
+    db.save(newData)
+  }
   
   const handleDelete = (id, type) => {
     ElMessageBox.confirm("确定要删除这条记录吗?", "警告", {
@@ -1243,6 +1219,7 @@
       type: "warning",
     }).then(() => {
       mockData[type] = mockData[type].filter((item) => item.id !== id);
+      saveToLocal()
       ElMessage.success("删除成功");
     });
   };

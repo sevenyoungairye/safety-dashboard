@@ -237,6 +237,7 @@
   </template>
   
   <script setup>
+  import { db } from '../utlils/storage' // 引入 storage
   import { ref, reactive, onMounted, onUnmounted } from 'vue'
   import * as echarts from 'echarts'
   import { 
@@ -296,6 +297,8 @@ const getRecurColor = (index) => {
   // --- 2. 定义响应式数据 (用于绑定 el-table) ---
   // 初始化时，让它等于原始数据
   const cardData = ref([...rawCardData])
+  // 饼图数据 Ref
+  const pieData = ref([])
   
   const trackingData = [
       { title: '关于加强雨季防洪安全的通知', status: 'pending', statusText: '待反馈', assignee: '张工' },
@@ -335,7 +338,7 @@ const getRecurColor = (index) => {
   
   const handleSearch = () => {
     console.log('params, ', queryParams.unit)
-    let results = [...rawCardData]
+    let results = [...allCards.value]
   
     // 1. 班组筛选 (直接对比)
     if (queryParams.unit && queryParams.unit !== 'all') {
@@ -391,13 +394,7 @@ const getRecurColor = (index) => {
                   length: 10,  // 第一段线长
                   length2: 10  // 第二段线长
               },
-              data: [
-                  { value: 12, name: '行车' },
-                  { value: 8, name: '人身' },
-                  { value: 5, name: '设备' },
-                  { value: 2, name: '消防' },
-                  { value: 3, name: '其他' }
-              ]
+              data: pieData.value
           }]
       })
     }
@@ -422,8 +419,69 @@ const getRecurColor = (index) => {
       })
     }
   }
+
+  const allCards = ref([]) // 🔥 存所有数据 (底表)
+
+  const loadData = () => {
+    const data = db.load()
+
+    // 读取所有牌卡数据，并预处理格式
+    allCards.value = (data.cards || []).map(item => ({
+      ...item,
+      // 处理颜色样式
+      colorClass: item.color === '红色' ? 'bg-red' : (item.color === '黄色' ? 'bg-yellow' : 'bg-white'),
+      // 处理日期显示 (假设存的是 YYYY-MM-DD)
+      displayDate: item.date.substring(5) 
+    }))
+
+    handleSearch()
+    
+    // 1. 处理牌卡列表 (直接映射)
+    // 注意：管理端存的是 '红色'，首页显示样式可能需要 'bg-red'，要做个映射
+    cardData.value = (data.cards || []).map(item => ({
+      level: item.level,
+      // 简单映射一下颜色样式类名
+      colorClass: item.color === '红色' ? 'bg-red' : (item.color === '黄色' ? 'bg-yellow' : 'bg-white'),
+      reason: item.reason,
+      responsible: item.responsible,
+      team: item.team,
+      date: item.date // 只显示 MM-DD
+    })).slice(0, 10) // 只显示最新的10条
+
+    // 处理安全问题 -> 统计汇总数据
+    const safetyList = data.safety || []
+
+    // 处理安全问题 -> 饼图数据 (聚合统计)
+    // 统计每种类型有多少个
+    const typeCount = {}
+    safetyList.forEach(item => {
+      typeCount[item.type] = (typeCount[item.type] || 0) + 1
+    })
+    
+    // 转换成 ECharts 需要的格式 { value: 10, name: '行车' }
+    pieData.value = Object.keys(typeCount).map(key => ({
+      name: key,
+      value: typeCount[key]
+    }))
+    
+    // 如果图表已经初始化了，需要 setOption 更新数据
+    if (pieChart) {
+      pieChart.setOption({ series: [{ data: pieData.value }] })
+    }
+  }
   
   onMounted(() => {
+
+    //  先加载数据
+    loadData()
+
+    
+    // 监听 storage 事件 (实现多标签页自动同步)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'safety-app-data') {
+        loadData() // 重新读取并刷新界面
+      }
+    })
       initCharts()
       window.addEventListener('resize', () => {
           pieChart?.resize()
