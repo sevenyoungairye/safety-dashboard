@@ -5,7 +5,10 @@
           <el-icon class="logo-icon"><Shield /></el-icon>
           <h1 class="app-title">邯郸运用二车间可视化平台 - 后台数据管理</h1>
   
-          <div style="color: #eee" @click="goSafePage">查看安全记录数据</div>
+          <!-- <div style="color: #eee" @click="goSafePage">查看安全记录数据</div> -->
+          <el-button type="primary" plain size="small" @click="goSafePage">
+            查看安全记录数据
+          </el-button>
         </div>
         <div class="header-right">
           <span class="user-info">当前用户: 管理员</span>
@@ -702,6 +705,83 @@
               </el-card>
             </div>
           </el-tab-pane>
+
+          <el-tab-pane label="灭火器维护" name="extinguisher">
+           <template #label><span class="tab-label"><el-icon><Tools /></el-icon> 灭火器维护</span></template>
+           <div class="pane-layout">
+              <el-card class="form-card">
+                 <template #header><div class="card-header"><el-icon class="icon-blue"><CirclePlus /></el-icon> 维护录入</div></template>
+                 <el-form :model="forms.extinguisher" label-position="top">
+                    <el-form-item label="器材编号" required>
+                       <el-input v-model="forms.extinguisher.number" placeholder="例如: 58813-01" />
+                    </el-form-item>
+                    <el-form-item label="配置位置" required>
+                       <el-select 
+                          v-model="forms.extinguisher.location" 
+                          placeholder="请选择或输入" 
+                          filterable 
+                          allow-create 
+                          default-first-option
+                          style="width: 100%"
+                       >
+                          <el-option v-for="l in ['列检地源热泵室','列检伙食团','列检充电室','站修门卫', '站修电动车棚']" :key="l" :label="l" :value="l"/>
+                       </el-select>
+                    </el-form-item>
+                    <el-form-item label="维护状态">
+                       <el-radio-group v-model="forms.extinguisher.status">
+                          <el-radio label="Normal">正常</el-radio>
+                          <el-radio label="Refill">需充装</el-radio>
+                          <el-radio label="Scrap">报废</el-radio>
+                       </el-radio-group>
+                    </el-form-item>
+                    <el-form-item label="维护日期">
+                       <el-date-picker v-model="forms.extinguisher.date" type="date" style="width: 100%" value-format="YYYY-MM-DD"/>
+                    </el-form-item>
+                    <div class="form-actions">
+                       <el-button type="primary" @click="submitForm('extinguisher')">保存记录</el-button>
+                       <el-button @click="resetForm('extinguisher')">重置</el-button>
+                    </div>
+                 </el-form>
+              </el-card>
+
+              <el-card class="table-card">
+                 <template #header>
+                    <div class="table-header">
+                       <span class="card-header"><el-icon class="icon-blue"><List /></el-icon> 维护列表</span>
+                       <div class="header-search"><el-input v-model="search.extinguisher" placeholder="搜索编号或位置..." :prefix-icon="Search"/></div>
+                    </div>
+                 </template>
+                 <el-table :data="paginatedExtinguisher" stripe height="500">
+                    <el-table-column prop="number" label="器材编号" width="140" sortable />
+                    <el-table-column prop="location" label="配置位置" show-overflow-tooltip />
+                    <el-table-column label="状态" width="100" align="center">
+                       <template #default="{row}">
+                          <el-tag :type="getExtinguisherTag(row.status)" effect="light">
+                             {{ getExtinguisherLabel(row.status) }}
+                          </el-tag>
+                       </template>
+                    </el-table-column>
+                    <el-table-column prop="date" label="维护日期" width="120" sortable />
+                    <el-table-column label="操作" width="120" fixed="right">
+                       <template #default="{row}">
+                          <el-button link type="primary" @click="showDetail(row, 'extinguisher')">查看</el-button>
+                          <el-button link type="danger" @click="handleDelete(row.id, 'extinguisher')">删除</el-button>
+                       </template>
+                    </el-table-column>
+                 </el-table>
+                 <div class="pagination-wrapper">
+                    <el-pagination 
+                       background 
+                       layout="prev, pager, next, total" 
+                       :total="filteredExtinguisher.length" 
+                       v-model:current-page="pages.extinguisher" 
+                       :page-size="pageSize"
+                    />
+                 </div>
+              </el-card>
+           </div>
+          </el-tab-pane>
+          
         </el-tabs>
       </el-main>
   
@@ -755,6 +835,7 @@
   import { ref, reactive, computed, onMounted } from "vue";
   import { ElMessage, ElMessageBox } from "element-plus";
   import {
+    Tools,
     SwitchButton,
     Warning,
     CirclePlus,
@@ -867,6 +948,12 @@
         progress: "50",
       },
     ],
+    // 🔥 新增：灭火器维护数据
+    extinguisher: [
+      { id: 'MHQ001', number: '58813-01', location: '列检地源热泵室', status: 'Normal', date: '2026-01-01' },
+      { id: 'MHQ002', number: '58813-02', location: '列检地源热泵室', status: 'Refill', date: '2026-01-08' },
+      { id: 'MHQ003', number: '58813-03', location: '列检伙食团', status: 'Scrap', date: '2026-02-01' },
+    ],
   });
   
   // 表单模型
@@ -890,6 +977,8 @@
       status: "pending",
       progress: 0,
     },
+    // 🔥 新增表单模型
+    extinguisher: { number: '', location: '', status: 'Normal', date: '' }
   });
   
   // 搜索和分页状态
@@ -899,6 +988,7 @@
     fire: "",
     danger: "",
     tracking: "",
+    extinguisher: '',
   });
   const pages = reactive({
     safety: 1,
@@ -906,6 +996,7 @@
     fire: 1,
     danger: 1,
     tracking: 1,
+    extinguisher: 1,
   });
   
   // 详情弹窗状态
@@ -966,6 +1057,10 @@
     paginate(filteredTracking.value, pages.tracking)
   );
   
+  // fire 
+  const filteredExtinguisher = computed(() => filterList(mockData.extinguisher, search.extinguisher, ['number', 'location']))
+  const paginatedExtinguisher = computed(() => paginate(filteredExtinguisher.value, pages.extinguisher))
+
   // 详情展示的计算属性
   const currentDetailDisplay = computed(() => {
     if (!currentDetail.value) return {};
@@ -1014,6 +1109,13 @@
         状态: item.statusText,
         进度: item.progress + "%",
       };
+    if(item.id.startsWith('MHQ')) return { 
+       '记录ID': item.id, 
+       '器材编号': item.number, 
+       '配置位置': item.location, 
+       '维护状态': getExtinguisherLabel(item.status), 
+       '维护日期': item.date 
+    }
     return {};
   });
   
@@ -1064,6 +1166,15 @@
     const map = { pending: "warning", processing: "", completed: "success" };
     return map[status] || "info";
   };
+
+  const getExtinguisherTag = (status) => {
+    const map = { 'Normal': 'success', 'Refill': 'warning', 'Scrap': 'danger' }
+    return map[status] || 'info'
+  }
+  const getExtinguisherLabel = (status) => {
+    const map = { 'Normal': '正常', 'Refill': '需充装', 'Scrap': '报废' }
+    return map[status] || status
+  }
   
   // 3. CRUD 操作
   const generateId = (prefix, list) => {
@@ -1106,6 +1217,8 @@
         completed: "已完成",
       };
       newItem.statusText = statusMap[newItem.status];
+    } else if (type === 'extinguisher') {
+      newItem.id = generateId('MHQ', mockData.extinguisher)
     }
   
     mockData[type].unshift(newItem);

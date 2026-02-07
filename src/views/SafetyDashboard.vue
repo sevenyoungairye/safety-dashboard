@@ -3,9 +3,12 @@
       <header class="main-header">
         <div class="header-left">
           <el-icon class="logo-icon"><Platform /></el-icon>
-          <h1 class="app-title">石家庄车辆段车间安全指标可视化平台</h1>
+          <h1 class="app-title">邯郸运用二车间安全管理信息化平台</h1>
   
-          <div style="color: #eee;" @click="goAdminPage" >返回管理页面</div>
+          <!-- <div style="color: red;" @click="goAdminPage" >后台数据</div> -->
+          <el-button type="primary" plain size="small" @click="goAdminPage">
+            后台数据
+          </el-button>
         </div>
         <div class="header-right">
           <span class="time-text">数据更新时间: {{ currentTime }}</span>
@@ -28,6 +31,7 @@
                 <el-option label="二班" value="二班" />
                 <el-option label="三班" value="三班" />
                 <el-option label="四班" value="四班" />
+                <el-option label="站修" value="站修" />
               </el-select>
             </el-form-item>
             <el-form-item label="时间范围">
@@ -57,7 +61,7 @@
   
           <el-card class="dashboard-card" shadow="hover">
             <div class="card-header">
-              <el-icon class="icon-blue"><Postcard /></el-icon> 最近发布牌卡详情
+              <el-icon class="icon-blue"><Postcard /></el-icon> 牌卡发放
             </div>
             <el-table :data="cardData" style="width: 100%" height="240" stripe :header-cell-style="{background:'#f8fafc'}">
               <el-table-column prop="level" label="牌卡等级" width="90">
@@ -81,12 +85,12 @@
   
           <el-card class="dashboard-card" shadow="hover">
             <div class="card-header">
-              <el-icon class="icon-blue"><DataAnalysis /></el-icon> 数据汇总
+              <el-icon class="icon-blue"><DataAnalysis /></el-icon> 安全风险管控及安全隐患排查
             </div>
             <div class="summary-list">
               <div class="summary-item bg-gray">
                 <div class="s-info">
-                  <span>安全问题总数</span>
+                  <span>问题总数</span>
                   <span class="s-num text-danger">27</span>
                 </div>
                 <el-progress :percentage="85" :show-text="false" color="#ef4444" stroke-width="8" />
@@ -110,25 +114,48 @@
         </div>
   
         <div class="grid-section-2">
-          <el-card class="dashboard-card" shadow="hover">
+          <!-- <el-card class="dashboard-card" shadow="hover">
             <div class="card-header">
-              <el-icon class="icon-blue"><RefreshRight /></el-icon> 安全问题重复发生统计
+              <el-icon class="icon-blue"><RefreshRight /></el-icon> 高频问题统计
             </div>
             <div ref="recurringChartRef" class="chart-box"></div>
-          </el-card>
+          </el-card> -->
+
+          <el-card class="dashboard-card" shadow="hover">
+            <div class="card-header">
+              <el-icon class="icon-blue"><RefreshRight /></el-icon> 高频问题统计
+              <el-tag size="small" type="danger" effect="plain" style="margin-left: auto">TOP 5</el-tag>
+            </div>
+            
+            <div class="recur-list-container">
+              <div v-for="(item, index) in recurringList" :key="index" class="recur-item">
+                <div class="recur-header">
+                  <span class="recur-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
+                  <span class="recur-name" :title="item.name">{{ item.name }}</span>
+                  <span class="recur-count">{{ item.count }} 次</span>
+                </div>
+                <el-progress 
+                  :percentage="item.percentage" 
+                  :show-text="false" 
+                  :stroke-width="6" 
+                  :color="getRecurColor(index)"
+                />
+              </div>
+            </div>
+          </el-card>          
   
           <el-card class="dashboard-card" shadow="hover">
             <div class="card-header">
-              <el-icon class="icon-blue"><List /></el-icon> 安全隐患与信息跟踪
+              <el-icon class="icon-blue"><List /></el-icon> 近期安全重点提示
             </div>
             <div class="mini-stats">
               <div class="stat-box bg-gray">
                 <div class="stat-num text-info">42</div>
-                <div class="stat-label">隐患录入</div>
+                <!-- <div class="stat-label">隐患录入</div> -->
               </div>
               <div class="stat-box bg-gray">
                 <div class="stat-num text-warning">15</div>
-                <div class="stat-label">未销号</div>
+                <!-- <div class="stat-label">未销号</div> -->
               </div>
             </div>
             <el-table :data="trackingData" style="width: 100%" height="150" :header-cell-style="{background:'#f8fafc'}">
@@ -225,7 +252,7 @@
   const router = useRouter();
   
   // --- 状态定义 ---
-  const currentTime = ref('2025-07-21 08:30')
+  const currentTime = ref('2026-02-07 08:30')
   const showDetails = ref(false)
   const queryParams = reactive({
     unit: '',
@@ -241,6 +268,21 @@
   //   { level: '段级', colorClass: 'bg-yellow', reason: '作业流程执行不严格', responsible: '刘工', team: '一班', date: '07-12' },
   // ]
   
+  const recurringList = ref([
+  { name: '未按规定佩戴安全帽', count: 12, percentage: 90 }, // percentage 可以后端算，也可以前端算
+  { name: '消防通道堆放杂物', count: 8, percentage: 60 },
+  { name: '设备点检记录缺失', count: 5, percentage: 40 },
+  { name: '高空作业无监护人', count: 3, percentage: 25 },
+  { name: '绝缘手套过期', count: 2, percentage: 15 },
+])
+
+// --- 2. 颜色辅助函数 ---
+const getRecurColor = (index) => {
+  // 前三名给不同的警示色，后面用灰色或蓝色
+  const colors = ['#ef4444', '#f59e0b', '#e6a23c']
+  return colors[index] || '#909399'
+}
+  
   // --- 1. 定义原始数据 (不会被修改) ---
   const rawCardData = [
     { level: '局级', colorClass: 'bg-red', reason: '未按规定进行设备检查', responsible: '张工', team: '一班', date: '2026-01-29' },
@@ -248,6 +290,7 @@
     { level: '车间级', colorClass: 'bg-yellow', reason: '消防设施检查记录不完整', responsible: '王工', team: '三班', date: '2026-01-30' },
     { level: '班组级', colorClass: 'bg-white', reason: '工具摆放不规范', responsible: '赵工', team: '四班', date: '2026-02-01' },
     { level: '段级', colorClass: 'bg-yellow', reason: '作业流程执行不严格', responsible: '刘工', team: '一班', date: '2026-02-12' },
+    { level: '站修', colorClass: 'bg-yellow', reason: '站修测试信息', responsible: '姚工', team: '站修', date: new Date().toLocaleDateString('en-CA') },
   ]
   
   // --- 2. 定义响应式数据 (用于绑定 el-table) ---
@@ -330,8 +373,24 @@
           legend: { orient: 'vertical', right: 0, top: 'center' },
           series: [{
               type: 'pie',
-              radius: ['0%', '75%'], // 实心饼图
-              center: ['40%', '50%'],
+              // 1. 调小半径，给外部文字留空间 (原75% -> 60%)
+              radius: ['0%', '45%'], 
+              // 2. 圆心向左偏移，平衡右侧图例 (35%的位置)
+              center: ['43%', '50%'],
+              // 3. 配置标签显示格式
+              label: {
+                  show: true,
+                  position: 'outside', // 文字显示在外部
+                  formatter: '{b} {d}%', // {b}=名称, {d}=百分比
+                  color: '#333', // 文字颜色
+                  fontSize: 12   // 文字大小
+              },
+              // 引导线配置 (连接文字和饼图的线)
+              labelLine: {
+                  show: true,
+                  length: 10,  // 第一段线长
+                  length2: 10  // 第二段线长
+              },
               data: [
                   { value: 12, name: '行车' },
                   { value: 8, name: '人身' },
@@ -395,6 +454,66 @@
     background-color: #f0f2f5;
     font-family: 'Inter', sans-serif;
   }
+
+  /* 列表容器 */
+.recur-list-container {
+  height: 250px; /* 保持和左边图表一样高 */
+  overflow-y: auto; /* 内容多了可以滚动 */
+  padding: 0 10px;
+}
+
+/* 单个块样式 */
+.recur-item {
+  margin-bottom: 16px;
+  
+  .recur-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #606266;
+  }
+
+  /* 排名数字 */
+  .recur-rank {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 4px;
+    background-color: #f0f2f5;
+    color: #909399;
+    font-weight: bold;
+    font-size: 12px;
+    margin-right: 8px;
+
+    /* 前三名高亮 */
+    &.rank-1 { background-color: #ef4444; color: white; }
+    &.rank-2 { background-color: #f59e0b; color: white; }
+    &.rank-3 { background-color: #faad14; color: white; }
+  }
+
+  /* 问题名称 */
+  .recur-name {
+    flex: 1; /* 撑满中间 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 文字太长显示省略号 */
+    margin-right: 10px;
+    font-weight: 500;
+    color: #303133;
+  }
+
+  /* 次数 */
+  .recur-count {
+    font-weight: bold;
+    color: #303133;
+    min-width: 40px;
+    text-align: right;
+  }
+}
   
   // 1. Header
   .main-header {
